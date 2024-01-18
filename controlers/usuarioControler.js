@@ -11,8 +11,10 @@ const formularioLogin = (req, res) => {
 };
 //Ruta de registro
 const formularioRegistro = (req, res) => {
+  console.log(req.csrfToken())
   res.render("auth/registro", {
     pagina: "Crear cuenta",
+    csrfToken: req.csrfToken()
   });
 };
 //Ruta para insertar un usuario
@@ -25,7 +27,7 @@ const registrar = async (req, res) => {
   await check("email").isEmail().withMessage("El email no es valido").run(req);
   await check("password")
     .isLength({ min: 8 })
-    .withMessage("La contraseña debe tener minimo 6 cracteres")
+    .withMessage("La contraseña debe tener minimo 8 cracteres")
     .run(req);
   await check("repite_password")
     .equals(req.body.password)
@@ -38,6 +40,7 @@ const registrar = async (req, res) => {
     return res.render("auth/registro", {
       pagina: "Crear cuenta",
       errores: resultado.array(),
+      csrfToken: req.csrfToken(),
       //setiando el input
       usuario: {
         nombre: req.body.nombre,
@@ -54,6 +57,7 @@ const registrar = async (req, res) => {
   if (usuarioRepetido) {
     return res.render("auth/registro", {
       pagina: "Crear cuenta",
+      csrfToken: req.csrfToken(),
       errores: [{ msg: "El usuario ya esta registrado" }],
       //setiando el input
       usuario: {
@@ -85,19 +89,33 @@ const registrar = async (req, res) => {
   }
 };
 //Confirmando cuenta
-const confirmarCuenta = (req,res)=>{
-  const {token}=req.params;//obtiene  los datos de la url
- //Validar El token
-
- //Confirmar la cuenta
-}
+const confirmarCuenta = async (req, res) => {
+  const { token } = req.params; //obtiene  los datos de la url
+  //Validar El token
+  const usuario = await Usuario.findOne({ where: { token } });
+  if (!usuario) {
+    return res.render("auth/confirmar-cuenta", {
+      pagina: "Error al confirmar cuenta",
+      mensaje:
+        "Hubo un error al confirmar tu cuenta, por favor intenta denuevo",
+      error: true,
+    });
+  }
+  //confirmar-cuenta
+  usuario.token = null;
+  usuario.confirmado = true;
+  await usuario.save(); //guardando los cambios en usuario
+  res.render("auth/confirmar-cuenta", {
+    pagina: "Cuenta Confirmada",
+    mensaje: "La cuenta fue confirmada correctamente",
+  });
+};
 //Recuperar passwor
 const formularioRecuperarPassword = (req, res) => {
-  res.render("auth/recuperar-password", {
+  return res.render("auth/recuperar-password", {
     pagina: "Recuperar Tu password",
   });
 };
-
 
 //exportando funciones
 export {
@@ -106,5 +124,4 @@ export {
   registrar,
   confirmarCuenta,
   formularioRecuperarPassword,
- 
 };
