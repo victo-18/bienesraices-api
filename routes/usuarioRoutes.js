@@ -3,9 +3,12 @@ import express from "express";
 import {
   formularioLogin,
   formularioRegistro,
-  formularioRecuperarPassword,
+  formularioOlvidePassword,
   registrar,
-  confirmarCuenta
+  confirmarCuenta,
+  resetPassword,
+  comprobarToken,
+  nuevoPassword
 } from "../controlers/usuarioControler.js";
 //Inicializando express
 const router = express.Router();
@@ -13,6 +16,10 @@ const router = express.Router();
 router.get("/login", formularioLogin);
 router.get("/registroUsuario", formularioRegistro);
 router.post("/registroUsuario", registrar);
-router.get("/recuperar-password", formularioRecuperarPassword);
 router.get("/confirmarCuenta/:token",confirmarCuenta)
+router.get("/olvide-password", formularioOlvidePassword );
+router.post("/olvide-password",resetPassword);
+//Rutas para almacenar el nuevo password
+router.get("/olvide-password/token",comprobarToken)
+router.get("/olvide-password/token",nuevoPassword)
 export default router;
