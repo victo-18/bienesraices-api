@@ -26,4 +26,31 @@ const emailRegistro = async (datos) => {
         `,
   });
 };
-export { emailRegistro };
+//Email para restablecer password
+const emailOlvidePassword = async (datos) => {
+  const transport = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+  //Estrallendo los datos del usuario
+  const { nombre, email, token } = datos;
+  //Enviando E-mail
+  await transport.sendMail({
+    from: "BienesRaices.com",
+    to: email,
+    subject: "Restasblecer password en BienesRaices.com",
+    text: "Solicitaste el restablecimiento de tu password en BienesRaices.com",
+    html: ` <p> Hola ${nombre} hemos enviado un e-mail con el enlace para cambiar tu password en BienesRaices.com</p>
+          
+               <p> Sigue el enlace para cambiar tu passwor y poder seguir dsifrutando de BienesRaices.com<a href ="${
+                 process.env.BACKEND_URL_HOST}:${process.env.PORT ?? 3000}/auth/olvide-password/${token}">Restablecer password</a></p>
+
+               <p> Si tu no solcitastes el cambio, puedes ignorar el mensaje</p>
+        `,
+  });
+};
+export { emailRegistro,emailOlvidePassword};

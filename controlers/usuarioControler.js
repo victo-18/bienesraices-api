@@ -2,19 +2,20 @@ import { check, validationResult } from "express-validator";
 //Importando modelos
 import Usuario from "../models/Usuario.js";
 import { generarId } from "../helpers/token.js";
-import { emailRegistro } from "../helpers/email.js";
+import { emailRegistro, emailOlvidePassword } from "../helpers/email.js";
+//import { where } from "sequelize";
 //Definidiendo las rutas
 const formularioLogin = (req, res) => {
   res.render("auth/login", {
     pagina: "Iniciar sesión",
+    //csrfToken: req.csrfToken(),
   });
 };
 //Ruta de registro
 const formularioRegistro = (req, res) => {
-  console.log(req.csrfToken())
   res.render("auth/registro", {
     pagina: "Crear cuenta",
-    csrfToken: req.csrfToken()
+    csrfToken: req.csrfToken(),
   });
 };
 //Ruta para insertar un usuario
@@ -57,7 +58,7 @@ const registrar = async (req, res) => {
   if (usuarioRepetido) {
     return res.render("auth/registro", {
       pagina: "Crear cuenta",
-      csrfToken: req.csrfToken(),
+      csrfToken: req.csrfToken(), //genera un token para identificar el origen de la peticion
       errores: [{ msg: "El usuario ya esta registrado" }],
       //setiando el input
       usuario: {
@@ -111,11 +112,61 @@ const confirmarCuenta = async (req, res) => {
   });
 };
 //Recuperar passwor
-const formularioRecuperarPassword = (req, res) => {
-  return res.render("auth/recuperar-password", {
-    pagina: "Recuperar Tu password",
+const formularioOlvidePassword = (req, res) => {
+  res.render("auth/olvide-password", {
+    pagina: "Recupera Tu acceso en bienes raices",
+    csrfToken: req.csrfToken(),
   });
 };
+//reseteando password
+const resetPassword = async (req, res) => {
+  // Validando el email
+  await check("email")
+    .isEmail()
+    .withMessage("Ese no es un E-mail correcto")
+    .run(req);
+  let resultado = validationResult(req);
+  //Validar que la respuesta este vacia
+  if (!resultado.isEmpty()) {
+    //Errores
+    return res.render("auth/olvide-password", {
+      pagina: "Recupera tu acceso",
+      csrfToken: req.csrfToken(),
+      errores: resultado.array(),
+    });
+  }
+  const usuarioEncontrado = await Usuario.findOne({
+    where: { email: req.body.email },
+  });
+  if (!usuarioEncontrado) {
+    return res.render("auth/olvide-password", {
+      pagina: "Recupera tu acceso",
+      csrfToken: req.csrfToken(),
+      errores: [{ msg: "El usuario no esta registrado" }],
+    });
+  }
+
+  //Generar token
+  usuarioEncontrado.token = generarId();
+  await usuarioEncontrado.save();
+  //enviar email
+  emailOlvidePassword({
+    nombre: usuarioEncontrado.nombre,
+    email: usuarioEncontrado.email,
+    token: usuarioEncontrado.token,
+  });
+  console.log("El usuario encntrado es:", usuarioEncontrado);
+  res.render("mensaje/mensaje", {
+    pagina: "Restabecer password",
+    mensaje: `Hemos enviado un Email para restablecer tu password al E-mail ${usuarioEncontrado.email}, presiona en el enlace para confirmar tu cuenta`,
+  });
+};
+//Validar token para cambio de password
+const comprobarToken = (req, res,next) => {
+  next();
+};
+//Almacenar el nuevo passwor
+const nuevoPassword = (req, res) => {};
 
 //exportando funciones
 export {
@@ -123,5 +174,9 @@ export {
   formularioRegistro,
   registrar,
   confirmarCuenta,
-  formularioRecuperarPassword,
+  formularioOlvidePassword,
+  resetPassword,
+  comprobarToken,
+  nuevoPassword,
+
 };
