@@ -8,18 +8,20 @@ import {
   confirmarCuenta,
   resetPassword,
   comprobarToken,
-  nuevoPassword
+  nuevoPassword,
+  autenticacionUsuario,
 } from "../controlers/usuarioControler.js";
 //Inicializando express
 const router = express.Router();
 //Utilizando las rutas
 router.get("/login", formularioLogin);
+router.post("/login", autenticacionUsuario);
 router.get("/registroUsuario", formularioRegistro);
 router.post("/registroUsuario", registrar);
 router.get("/confirmarCuenta/:token",confirmarCuenta)
 router.get("/olvide-password", formularioOlvidePassword );
 router.post("/olvide-password",resetPassword);
 //Rutas para almacenar el nuevo password
-router.get("/olvide-password/token",comprobarToken)
-router.get("/olvide-password/token",nuevoPassword)
+router.get("/olvide-password/:token",comprobarToken)
+router.post("/olvide-password/:token",nuevoPassword)
 export default router;
