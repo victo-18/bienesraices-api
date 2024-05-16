@@ -3,6 +3,7 @@ import express from "express";
 import csrf from "csurf";
 import cookieParser from "cookie-parser";
 import usuarioRouter from "./routes/usuarioRoutes.js";
+import propiedadesRoutes from "./routes/propiedadesRoutes.js";
 import DB from "./dbconfig/db.js";
 //Creando el servidor
 const server = express();
@@ -33,6 +34,8 @@ server.set("views", "./views");
 
 //Rutas de acseso a la informacion
 server.use("/auth", usuarioRouter);
+
+server.use("/",propiedadesRoutes)
 
 //Archivos estadicos
 server.use(express.static("public"));

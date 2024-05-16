@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 //import jwt from 'jsonwebtoken';
 //Importando modelos
 import Usuario from "../models/Usuario.js";
-import { generarJWT,generarId } from "../helpers/token.js";
+import { generarJWT, generarId } from "../helpers/token.js";
 import { emailRegistro, emailOlvidePassword } from "../helpers/email.js";
 
 //Definidiendo las rutas
@@ -24,7 +24,7 @@ const autenticacionUsuario = async (req, res) => {
     .notEmpty()
     .withMessage("El passwor es obligatorio")
     .run(req);
-    let resultado = validationResult(req);
+  let resultado = validationResult(req);
   //Validar que la respuesta este vacia
   if (!resultado.isEmpty()) {
     //Errores
@@ -35,31 +35,34 @@ const autenticacionUsuario = async (req, res) => {
     });
   }
   //Identificar el usuario
-  const{email,password}=req.body;
- const usuario= await Usuario.findOne({where:{email}})
- if(!usuario.confirmado){
-  return res.render("auth/login", {
-    pagina: "Inicio sesión",
-    errores:[{msg:"Tu cuenta no ha sido confirmada"}],
-    csrfToken: req.csrfToken(),
-  });
- }
- //revisando el passwor introducido por el usuario
- if(!usuario.verificarPassword(password)){
-  return res.render("auth/login", {
-    pagina: "Inicio sesión",
-    errores:[{msg:"La contraseña es incorrecta"}],
-    csrfToken: req.csrfToken(),
-  });
- }
- //Autenticando el usuario para el inicio de sesion
-  const token= generarJWT({id:usuario.id,nombre:usuario.nombre})
-  //Almacenar un cookes
-  return res.cooke("_token",token,{
-    httpOnly:true,//recibe solo peticiones de http
-    //secure:true,// con sertificado ssh
-  }).redirect("/mis-propiedades")
- //console.log("token generado:",token)
+  const { email, password } = req.body;
+  const usuario = await Usuario.findOne({ where: { email } });
+  if (!usuario.confirmado) {
+    return res.render("auth/login", {
+      pagina: "Inicio sesión",
+      errores: [{ msg: "Tu cuenta no ha sido confirmada" }],
+      csrfToken: req.csrfToken(),
+    });
+  }
+  //revisando el passwor introducido por el usuario
+  if (!usuario.verificarPassword(password)) {
+    return res.render("auth/login", {
+      pagina: "Inicio sesión",
+      errores: [{ msg: "La contraseña es incorrecta" }],
+      csrfToken: req.csrfToken(),
+    });
+  }
+  //Autenticando el usuario para el inicio de sesion
+  const token = generarJWT({ id: usuario.id, nombre: usuario.nombre });
+  //Almacenar el jwt en un cookes
+  return res
+    .cookie("_token", token, {
+      httpOnly: true, //recibe solo peticiones de http
+      //secure:true,// solo si se tiene un sertificado ssh
+      //sameSite: true, // proteger las cookes
+    })
+    .redirect("/mis-propiedades");
+  //console.log("token generado:",token)
 };
 //Ruta de registro
 const formularioRegistro = (req, res) => {
@@ -251,12 +254,16 @@ const nuevoPassword = async (req, res) => {
   const { password } = req.body;
 
   const usuario = Usuario.findOne({ where: { token } });
-
+  if (!usuario) {
+    return res.status(404).send("Usuario no encontrado");
+  }
   //haschear el nuevo passwor
   const salt = await bcrypt.genSalt(10);
   usuario.password = await bcrypt.hash(password, salt);
   usuario.token = null;
+  //Guardar los cambios reaizados
   await usuario.save();
+  //renderizando ventana
   res.render("auth/confirmarCuenta", {
     pagina: "Password restablecido",
     mensaje: "El password se guardo correctamente",
