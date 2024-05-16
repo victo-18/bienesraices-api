@@ -1,15 +1,68 @@
 import { check, validationResult } from "express-validator";
+import bcrypt from "bcrypt";
+//import jwt from 'jsonwebtoken';
 //Importando modelos
 import Usuario from "../models/Usuario.js";
-import { generarId } from "../helpers/token.js";
+import { generarJWT, generarId } from "../helpers/token.js";
 import { emailRegistro, emailOlvidePassword } from "../helpers/email.js";
-//import { where } from "sequelize";
+
 //Definidiendo las rutas
 const formularioLogin = (req, res) => {
   res.render("auth/login", {
     pagina: "Iniciar sesión",
-    //csrfToken: req.csrfToken(),
+    csrfToken: req.csrfToken(),
   });
+};
+//Autenticacion de usuario
+const autenticacionUsuario = async (req, res) => {
+  //Validar los datos
+  await check("email")
+    .isEmail()
+    .withMessage("El email es obligatorio")
+    .run(req);
+  await check("password")
+    .notEmpty()
+    .withMessage("El passwor es obligatorio")
+    .run(req);
+  let resultado = validationResult(req);
+  //Validar que la respuesta este vacia
+  if (!resultado.isEmpty()) {
+    //Errores
+    return res.render("auth/login", {
+      pagina: "Inicio sesión",
+      errores: resultado.array(),
+      csrfToken: req.csrfToken(),
+    });
+  }
+  //Identificar el usuario
+  const { email, password } = req.body;
+  const usuario = await Usuario.findOne({ where: { email } });
+  if (!usuario.confirmado) {
+    return res.render("auth/login", {
+      pagina: "Inicio sesión",
+      errores: [{ msg: "Tu cuenta no ha sido confirmada" }],
+      csrfToken: req.csrfToken(),
+    });
+  }
+  //revisando el passwor introducido por el usuario
+  if (!usuario.verificarPassword(password)) {
+    return res.render("auth/login", {
+      pagina: "Inicio sesión",
+      errores: [{ msg: "La contraseña es incorrecta" }],
+      csrfToken: req.csrfToken(),
+    });
+  }
+  //Autenticando el usuario para el inicio de sesion
+  const token = generarJWT({ id: usuario.id, nombre: usuario.nombre });
+  //Almacenar el jwt en un cookes
+  return res
+    .cookie("_token", token, {
+      httpOnly: true, //recibe solo peticiones de http
+      //secure:true,// solo si se tiene un sertificado ssh
+      //sameSite: true, // proteger las cookes
+    })
+    .redirect("/mis-propiedades");
+  //console.log("token generado:",token)
 };
 //Ruta de registro
 const formularioRegistro = (req, res) => {
@@ -162,15 +215,65 @@ const resetPassword = async (req, res) => {
   });
 };
 //Validar token para cambio de password
-const comprobarToken = (req, res,next) => {
-  next();
+const comprobarToken = async (req, res) => {
+  const { token } = req.params;
+  const usuario = await Usuario.findOne({ where: { token } });
+
+  if (!usuario) {
+    res.render("auth/confirmarCuenta", {
+      //csrfToken: req.csrfToken(),
+      pagina: "Restablece tu password",
+      mensaje: "Hubo un errror al validad tu informacion, intenta de nuevo",
+      error: true,
+    });
+  }
+  //Si el usuario existe
+  res.render("auth/resetpassword", {
+    pagina: "Restablece tu password",
+    csrfToken: req.csrfToken(),
+  });
 };
 //Almacenar el nuevo passwor
-const nuevoPassword = (req, res) => {};
+const nuevoPassword = async (req, res) => {
+  //Validar el nuevo password
+  await check("password")
+    .isLength({ min: 8, max: 16 })
+    .withMessage("La contraseña debe tener minimo 8 cracteres")
+    .run(req);
+
+  let resultado = validationResult(req);
+  if (!resultado.isEmpty()) {
+    res.render("auth/resetpassword", {
+      pagina: "Restablece tu password",
+      csrfToken: req.csrfToken(),
+      errores: resultado.array(),
+    });
+  }
+  //Identificar quien hace el cambio
+  const { token } = req.params;
+  const { password } = req.body;
+
+  const usuario = Usuario.findOne({ where: { token } });
+  if (!usuario) {
+    return res.status(404).send("Usuario no encontrado");
+  }
+  //haschear el nuevo passwor
+  const salt = await bcrypt.genSalt(10);
+  usuario.password = await bcrypt.hash(password, salt);
+  usuario.token = null;
+  //Guardar los cambios reaizados
+  await usuario.save();
+  //renderizando ventana
+  res.render("auth/confirmarCuenta", {
+    pagina: "Password restablecido",
+    mensaje: "El password se guardo correctamente",
+  });
+};
 
 //exportando funciones
 export {
   formularioLogin,
+  autenticacionUsuario,
   formularioRegistro,
   registrar,
   confirmarCuenta,
@@ -178,5 +281,4 @@ export {
   resetPassword,
   comprobarToken,
   nuevoPassword,
-
 };
